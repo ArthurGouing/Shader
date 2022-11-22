@@ -327,6 +327,22 @@ bool isIntersected(vec4 origin, vec4 dir)
 
 // Local illumination related functions. TODO
 //>
+float get_F(float costheta)
+{
+    float F;
+    if ((pow(eta,2)-(1-pow(costheta,2)))>0) 
+    {
+        float ci = sqrt(pow(eta,2)-(1-pow(costheta,2)));
+        float Fs = pow((costheta-ci)/(costheta+ci),2);
+        float Fp = pow((pow(eta,2)*costheta-ci)/(pow(eta,2)*costheta+ci),2);
+        F = Fs + Fp;
+    }
+    else {
+        F = 1.0;
+    }
+    return F;
+}
+
 vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
 {
 	// Goal: compute direct illumination at point p, from the light source at lightPosition.
@@ -341,7 +357,7 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
     vec4 Ca = Ka*lightIntensity*color;
     hitinfo_t h_shadow;
     bool in_shadow = firstIntersection(p, L, h_shadow);
-    if (in_shadow) 
+    if ( (in_shadow) || (dot(n, L)<0) )
     {
         return Ca;
     }
@@ -351,17 +367,17 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
     vec4 H =normalize(L+v);
     float costheta = dot(L, H);
     float ci;
-    float F;
     vec4 Cs;
-    if (pow(eta,2)-(1-pow(costheta,2))>0) {
-        ci = sqrt(pow(eta,2)-(1-pow(costheta,2)));
-        float Fs = pow((costheta-ci)/(costheta+ci),2);
-        float Fp = pow((pow(eta,2)*costheta-ci)/(pow(eta,2)*costheta+ci),2);
-        float F = Fs + Fp;
-    }
-    else {
-        F = 1.0;
-    }
+    //if (pow(eta,2)-(1-pow(costheta,2))>0) {
+    //    ci = sqrt(pow(eta,2)-(1-pow(costheta,2)));
+    //    float Fs = pow((costheta-ci)/(costheta+ci),2);
+    //    float Fp = pow((pow(eta,2)*costheta-ci)/(pow(eta,2)*costheta+ci),2);
+    //    float F = Fs + Fp;
+    //}
+    //else {
+    //    F = 1.0;
+    //}
+    float F = get_F(costheta);
 
     if (blinnPhong)
     {
@@ -390,7 +406,8 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
 	return Ca+Cd+Cs;
 }
 
-const int MAX_TRACE = 3;
+
+const int MAX_TRACE = 5;
 
 void getLocal(vec4 origin, vec4 dir, hitinfo_t h, out vec4 color, out vec4 p, out vec4 n)
 {
@@ -438,12 +455,13 @@ vec4 trace(vec4 origin, vec4 dir)
     }
 
     // Create the ray path
-    while ((firstIntersection(p, u, hl)) && (sp<=MAX_TRACE))
+    while ((firstIntersection(p, u, stack[sp].h)) && (sp<=MAX_TRACE))
     {
         stack[sp].origin = p;
-        stack[sp].dir = u;
-        firstIntersection(stack[sp].origin, stack[sp].dir, stack[sp].h);
-        getLocal(stack[sp].origin, stack[sp].dir, stack[sp].h, stack[sp].localColor, stack[sp].hit, stack[sp].N); 
+        stack[sp].dir = normalize(u);
+        //firstIntersection(stack[sp].origin, stack[sp].dir, stack[sp].h);
+        getLocal(stack[sp].origin, normalize(stack[sp].dir), stack[sp].h, stack[sp].localColor, stack[sp].hit, stack[sp].N); 
+        stack[sp].N = normalize(stack[sp].N);
         stack[sp].Ld = normalize(Lpos - p);   //the vector to the light source
         p = stack[sp].hit;
         u = reflect(stack[sp].dir, stack[sp].N);
@@ -455,7 +473,14 @@ vec4 trace(vec4 origin, vec4 dir)
     while(sp>=0)
     {
         di =  directIllumination(stack[sp].localColor, stack[sp].hit, stack[sp].N, -stack[sp].dir);
-        C += di;
+        float costheta = dot(-stack[sp].dir, stack[sp].N);
+        float rho = get_F(costheta);
+        //bool r_in_shadow = firstIntersection(stack[sp].hit, stack[sp].Ld, hl);
+        //if (r_in_shadow);
+        //{
+        //    rho = 0.;
+        //}
+        C = di + rho*C;
         sp--;
     }
     return C;
