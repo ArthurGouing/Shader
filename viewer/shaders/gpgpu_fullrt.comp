@@ -26,6 +26,8 @@ uniform vec3 center;
 #define Ka 0.05
 #define Kd 0.3
 
+#define PI 4*atan(1.0)
+
 struct hitinfo_t {
     /* Index of the first index of the triangle */
     /* or: GROUND_VPTR */
@@ -149,8 +151,11 @@ vec4 interpolateColor(hitinfo_t h)
 
 vec4 interpolateNormal(hitinfo_t h)
 {
-	// TODO
-	return vec4(1,0,0,1);
+    vec4 c0 = normals[indices[h.hit_vptr]];
+	vec4 c1 = normals[indices[h.hit_vptr + 1]];
+	vec4 c2 = normals[indices[h.hit_vptr + 2]];
+	vec4 nor0 = normalize(h.t.w * c0 + h.t.y * c1 + h.t.z * c2);
+    return nor0;
 }
 
 // BVH-related functions:
@@ -321,7 +326,7 @@ bool isIntersected(vec4 origin, vec4 dir)
 }
 
 // Local illumination related functions. TODO
-
+//>
 vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
 {
 	// Goal: compute direct illumination at point p, from the light source at lightPosition.
@@ -329,8 +334,60 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
 	// p: coordinates of intersection point, xyzw
 	// n: normal at intersection point, xyzw
 	// v: incoming viewing direction. Points towards the eye.
-	// TODO
-	return vec4(0.4, 0.4, 0.4, 1.0);
+    vec4 Lpos = vec4(lightPosition,1.0);
+    vec4 L = normalize(Lpos - p);   //the vector to the light source
+    n = normalize(n);
+    v = normalize(v);
+    vec4 Ca = Ka*lightIntensity*color;
+    hitinfo_t h_shadow;
+    bool in_shadow = firstIntersection(p, L, h_shadow);
+    if (in_shadow) 
+    {
+        return Ca;
+    }
+
+    vec4 Cd = Kd*max(dot(n,L),0)* lightIntensity*color;
+
+    vec4 H =normalize(L+v);
+    float costheta = dot(L, H);
+    float ci;
+    float F;
+    vec4 Cs;
+    if (pow(eta,2)-(1-pow(costheta,2))>0) {
+        ci = sqrt(pow(eta,2)-(1-pow(costheta,2)));
+        float Fs = pow((costheta-ci)/(costheta+ci),2);
+        float Fp = pow((pow(eta,2)*costheta-ci)/(pow(eta,2)*costheta+ci),2);
+        float F = Fs + Fp;
+    }
+    else {
+        F = 1.0;
+    }
+
+    if (blinnPhong)
+    {
+        Cs = F * pow(max(dot(n, H),0),shininess) * lightIntensity*color;
+    }
+    else //Cook-Torrance model
+    {
+        float costheta_in  = dot(L,n);
+        float costheta_out = dot(v,n);
+        float costheta_h  = dot(H,n);
+        float alpha = shininess/400;
+        alpha = exp(-shininess/ 500) - 0.5;
+        float D;
+        float theta = acos(costheta_h);
+        if (costheta_h>0){   
+            D =  pow(alpha,2)/(PI*pow(costheta_h,4)*pow(pow(alpha,2)+1/pow(costheta_h,2)-1,2));
+        }
+        else {
+            D = 0.0;
+        }
+        D =  pow(alpha,2)/(PI*pow(costheta_h,4)*pow(pow(alpha,2)+1/pow(costheta_h,2)-1,2));
+        float Gout = 2 / (1+sqrt(1+ pow(alpha,2)*(1/pow(costheta_out,2)-1)));
+        float Gin = 2 / (1+sqrt(1+ pow(alpha,2)*(1/pow(costheta_in,2)-1)));
+        Cs = F*D*Gin*Gout/(4*costheta_in*costheta_out) * lightIntensity*color;
+    }
+	return Ca+Cd+Cs;
 }
 
 const int MAX_TRACE = 3;
@@ -381,7 +438,8 @@ vec4 trace(vec4 origin, vec4 dir)
 		return directIllumination(localColor, hit, N, -dir);
 	}
 
-    return vec4(0, 0, 0, 1);
+    vec4 background_color = vec4(0.2, 0.2, 0.2, 1);
+    return background_color;
 }
 
 layout (local_size_x = 8, local_size_y = 8) in;
