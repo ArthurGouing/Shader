@@ -424,22 +424,41 @@ vec4 trace(vec4 origin, vec4 dir)
     trace_state_t stack[MAX_TRACE + 1];
     bool fallback[MAX_TRACE + 1];
     int sp = 0;
-
-	// These are for TP1:
+    vec4 Lpos = vec4(lightPosition,1.0);
+    vec4 p = origin;
+    vec4 u = dir;
     hitinfo_t hl;
-    vec4 hit;
-    vec4 localColor;
-    vec4 N;
+    vec4 C = vec4(0., 0., 0., 1.);
+    vec4 background_color = vec4(0.1, 0.1, 0.1, 1.);
 
-    float specular_factor, LdN;
 
-	if (firstIntersection(origin, dir, hl)) {
-		getLocal(origin, dir, hl, localColor, hit, N);
-		return directIllumination(localColor, hit, N, -dir);
-	}
+    if (!firstIntersection(p, u, hl))
+    {
+        return background_color;
+    }
 
-    vec4 background_color = vec4(0.2, 0.2, 0.2, 1);
-    return background_color;
+    // Create the ray path
+    while ((firstIntersection(p, u, hl)) && (sp<=MAX_TRACE))
+    {
+        stack[sp].origin = p;
+        stack[sp].dir = u;
+        firstIntersection(stack[sp].origin, stack[sp].dir, stack[sp].h);
+        getLocal(stack[sp].origin, stack[sp].dir, stack[sp].h, stack[sp].localColor, stack[sp].hit, stack[sp].N); 
+        stack[sp].Ld = normalize(Lpos - p);   //the vector to the light source
+        p = stack[sp].hit;
+        u = reflect(stack[sp].dir, stack[sp].N);
+
+        sp++;
+    }
+    vec4 di;
+    sp--;
+    while(sp>=0)
+    {
+        di =  directIllumination(stack[sp].localColor, stack[sp].hit, stack[sp].N, -stack[sp].dir);
+        C += di;
+        sp--;
+    }
+    return C;
 }
 
 layout (local_size_x = 8, local_size_y = 8) in;
