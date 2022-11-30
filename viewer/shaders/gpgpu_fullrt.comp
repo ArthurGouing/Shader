@@ -422,6 +422,17 @@ void getLocal(vec4 origin, vec4 dir, hitinfo_t h, out vec4 color, out vec4 p, ou
     }
 }
 
+def les_formules(vec4 origin, vec4 u)
+{
+    float t = - dot(origin, u) + sqrt( pow(dot(origin, u), 2) + (pow(radius, 2) - dot(origin, origin)) ); 
+    vec4 M = origin + t*u;
+    float r = sqrt(pow(M.x, 2) + pow(M.y, 2) + pow(M.z, 2));
+    float theta = acos(z/r);
+    float phi = atan(y, x);
+    vec2 textcoord = vec2(phi/(2*PI), PI/2 + theta/PI);
+    vec4 color =  texture(envMap, textcoord);
+    return color
+}
 
 struct trace_state_t
 {
@@ -434,6 +445,7 @@ struct trace_state_t
     vec4 Ld;      // direction to light at destination
     vec4 N;       // normal at destination
 };
+
 
 vec4 trace(vec4 origin, vec4 dir)
 {
