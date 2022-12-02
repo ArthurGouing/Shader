@@ -29,7 +29,7 @@ glShaderWindow::glShaderWindow(QWindow *parent)
       g_vertices(0), g_normals(0), g_texcoords(0), g_colors(0), g_indices(0),
       gpgpu_vertices(0), gpgpu_normals(0), gpgpu_texcoords(0), gpgpu_colors(0), gpgpu_indices(0),
       environmentMap(0), texture(0), permTexture(0), pixels(0), mouseButton(Qt::NoButton), auxWidget(0),
-      isGPGPU(true), hasComputeShaders(true), blinnPhong(true), transparent(true), eta(1.5), lightIntensity(1.0f), shininess(50.0f), lightDistance(5.0f), groundDistance(0.78),
+      isGPGPU(true), hasComputeShaders(true), blinnPhong(true), transparent(true), eta(1.5), lightIntensity(2.0f), shininess(50.0f), lightDistance(5.0f), groundDistance(0.78),
       shadowMap_fboId(0), shadowMap_rboId(0), shadowMap_textureId(0), fullScreenSnapshots(false), computeResult(0), 
       m_indexBuffer(QOpenGLBuffer::IndexBuffer), ground_indexBuffer(QOpenGLBuffer::IndexBuffer)
 {
@@ -158,7 +158,7 @@ void glShaderWindow::openNewEnvMap() {
             environmentMap = 0;
         }
 		glActiveTexture(GL_TEXTURE1);
-        environmentMap = new QOpenGLTexture(QImage(envMapName).mirrored());
+        environmentMap = new QOpenGLTexture(QImage(envMapName));
         if (environmentMap) {
             environmentMap->setWrapMode(QOpenGLTexture::MirroredRepeat);
             environmentMap->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
@@ -667,7 +667,7 @@ void glShaderWindow::loadTexturesForShaders() {
         || (hasComputeShaders && compute_program->uniformLocation("envMap") != -1)) {
 		glActiveTexture(GL_TEXTURE1);
         // the shader wants an environment map, we load one.
-        environmentMap = new QOpenGLTexture(QImage(envMapName).mirrored());
+        environmentMap = new QOpenGLTexture(QImage(envMapName));
         if (environmentMap) {
             environmentMap->setWrapMode(QOpenGLTexture::MirroredRepeat);
             environmentMap->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
@@ -1029,6 +1029,7 @@ void glShaderWindow::render()
         compute_program->setUniformValue("eta", eta);
         compute_program->setUniformValue("framebuffer", 2);
         compute_program->setUniformValue("colorTexture", 0);
+        compute_program->setUniformValue("envMap", 1);
 		glBindImageTexture(2, computeResult->textureId(), 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
         int worksize_x = nextPower2(width());
         int worksize_y = nextPower2(height());
