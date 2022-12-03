@@ -15,6 +15,10 @@ uniform float eta;
 uniform float radius;
 uniform float groundDistance;
 uniform vec3 center;
+uniform float envMap_coeff;
+uniform float x_offset;
+uniform float y_offset;
+//uniform int sample;
 
 #define MAX_SCENE_BOUNDS    10.0
 #define EPS                 0.000001
@@ -369,15 +373,6 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
     float costheta = dot(L, H);
     float ci;
     vec4 Cs;
-    //if (pow(eta,2)-(1-pow(costheta,2))>0) {
-    //    ci = sqrt(pow(eta,2)-(1-pow(costheta,2)));
-    //    float Fs = pow((costheta-ci)/(costheta+ci),2);
-    //    float Fp = pow((pow(eta,2)*costheta-ci)/(pow(eta,2)*costheta+ci),2);
-    //    float F = Fs + Fp;
-    //}
-    //else {
-    //    F = 1.0;
-    //}
     float F = get_F(costheta);
 
     if (blinnPhong)
@@ -424,9 +419,6 @@ void getLocal(vec4 origin, vec4 dir, hitinfo_t h, out vec4 color, out vec4 p, ou
 
 vec4 background_color(vec4 origin, vec4 u)
 {
-    float x_offset=0.; // a mettre en slider
-    float y_offset=0.;
-
     vec3 o = vec3(origin.x, origin.y, origin.z);
     vec4 cs = vec4(o-center, 1.);
     float t = - dot(cs, u) + sqrt( pow(dot(cs, u), 2) + (pow(radius*MAX_SCENE_BOUNDS, 2) - dot(cs, cs)) ); 
@@ -434,10 +426,10 @@ vec4 background_color(vec4 origin, vec4 u)
     float r = sqrt(pow(M.x, 2) + pow(M.y, 2) + pow(M.z, 2));
     float theta = acos(-M.y/r);
     float phi   = atan(M.z, M.x);
-    vec2 textcoord = vec2(x_offset+0.5+phi/(2*PI), y_offset+1.15-2*theta/PI);
+    vec2 textcoord = vec2(x_offset+0.5+phi/(2*PI), y_offset+.5-2*theta/PI);
     //if (textcoord.y<0) { textcoord.y=0;}
-    vec4 color     = texture(envMap, textcoord);
-    return color;
+    vec4 color = texture(envMap, textcoord);
+    return envMap_coeff*color;
 }
 
 struct trace_state_t

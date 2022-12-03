@@ -15,6 +15,8 @@
 #include <QtGui/QScreen>
 #include <QMouseEvent>
 
+#include <ctime>
+
 
 class glShaderWindow : public OpenGLWindow
 {
@@ -44,9 +46,17 @@ public slots:
     void blinnPhongClicked();
     void transparentClicked();
     void opaqueClicked();
+    void renderClicked();
+    void globalillOn();
+    void globalillOff();
     void updateLightIntensity(int lightSliderValue);
     void updateShininess(int shininessSliderValue);
     void updateEta(int etaSliderValue);
+    void updateEnv(int envSliderValue);
+    void updateXoffset(int xSliderValue);
+    void updateYoffset(int ySliderValue);
+    void updateSample(int sampleValue);
+    //void updateBounce(int bounceValue); //BOUNCE
 
 protected:
     void mousePressEvent(QMouseEvent *e);
@@ -99,11 +109,20 @@ private:
     // Parameters controlled by UI
     bool blinnPhong;
     bool transparent;
+    bool globalillumination;
     float eta;
     float lightIntensity;
     float shininess;
     float lightDistance;
     float groundDistance;
+    float envMap_coeff;
+    float x_offset;
+    float y_offset;
+    int sample;
+    //int bounce; // BOUNCE
+    // timer
+    std::clock_t t_start;
+    std::clock_t t_end;
 
 
     // OpenGL variables encapsulated by Qt

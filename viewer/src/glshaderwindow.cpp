@@ -8,6 +8,7 @@
 // Buttons/sliders for User interface:
 #include <QGroupBox>
 #include <QRadioButton>
+#include <QPushButton>
 #include <QSlider>
 #include <QLabel>
 // Layouts for User interface
@@ -18,6 +19,7 @@
 #include <assert.h>
 
 #include "perlinNoise.h" // defines tables for Perlin Noise
+#include <ctime>
 
 #include "bvh/bvh.hpp"
 #include "bvh/triangle.hpp"
@@ -29,7 +31,7 @@ glShaderWindow::glShaderWindow(QWindow *parent)
       g_vertices(0), g_normals(0), g_texcoords(0), g_colors(0), g_indices(0),
       gpgpu_vertices(0), gpgpu_normals(0), gpgpu_texcoords(0), gpgpu_colors(0), gpgpu_indices(0),
       environmentMap(0), texture(0), permTexture(0), pixels(0), mouseButton(Qt::NoButton), auxWidget(0),
-      isGPGPU(true), hasComputeShaders(true), blinnPhong(true), transparent(true), eta(1.5), lightIntensity(2.0f), shininess(50.0f), lightDistance(5.0f), groundDistance(0.78),
+      isGPGPU(true), hasComputeShaders(true), blinnPhong(true), transparent(true), eta(1.5), lightIntensity(2.0f), shininess(50.0f), lightDistance(5.0f), groundDistance(0.78), envMap_coeff(1.), x_offset(0.), y_offset(0.65), sample(4), globalillumination(false),
       shadowMap_fboId(0), shadowMap_rboId(0), shadowMap_textureId(0), fullScreenSnapshots(false), computeResult(0), 
       m_indexBuffer(QOpenGLBuffer::IndexBuffer), ground_indexBuffer(QOpenGLBuffer::IndexBuffer)
 {
@@ -193,21 +195,49 @@ void glShaderWindow::opaqueClicked()
     renderNow();
 }
 
+void glShaderWindow::globalillOn()
+{
+    globalillumination = true;
+}
+void glShaderWindow::globalillOff()
+{
+    globalillumination = false;
+}
+
 void glShaderWindow::updateLightIntensity(int lightSliderValue)
 {
     lightIntensity = lightSliderValue / 100.0;
-    renderNow();
 }
 
 void glShaderWindow::updateShininess(int shininessSliderValue)
 {
     shininess = shininessSliderValue;
-    renderNow();
 }
 
 void glShaderWindow::updateEta(int etaSliderValue)
 {
     eta = etaSliderValue/100.0;
+}
+void glShaderWindow::updateEnv(int envSliderValue)
+{
+    envMap_coeff = envSliderValue/100.0;
+}
+void glShaderWindow::updateXoffset(int xSliderValue)
+{
+    x_offset = xSliderValue/100.0;
+}
+void glShaderWindow::updateYoffset(int ySliderValue)
+{
+    y_offset = ySliderValue/100.0;
+}
+void glShaderWindow::updateSample(int sampleValue)
+{
+    sample = sampleValue;
+}
+void glShaderWindow::renderClicked()
+{
+    std::cout<<"Rendering..."<<endl;
+    t_start = std::clock();
     renderNow();
 }
 
@@ -241,6 +271,7 @@ QWidget *glShaderWindow::makeAuxWindow()
     else transparent2->setChecked(true);
     connect(transparent1, SIGNAL(clicked()), this, SLOT(transparentClicked()));
     connect(transparent2, SIGNAL(clicked()), this, SLOT(opaqueClicked()));
+
     QVBoxLayout *vbox2 = new QVBoxLayout;
     vbox2->addWidget(transparent1);
     vbox2->addWidget(transparent2);
@@ -248,22 +279,7 @@ QWidget *glShaderWindow::makeAuxWindow()
     buttons->addWidget(groupBox2);
     outer->addLayout(buttons);
 
-    // light source intensity
-    QSlider* lightSlider = new QSlider(Qt::Horizontal);
-    lightSlider->setTickPosition(QSlider::TicksBelow);
-    lightSlider->setMinimum(0);
-    lightSlider->setMaximum(200);
-    lightSlider->setSliderPosition(100*lightIntensity);
-    connect(lightSlider,SIGNAL(valueChanged(int)),this,SLOT(updateLightIntensity(int)));
-    QLabel* lightLabel = new QLabel("Light intensity = ");
-    QLabel* lightLabelValue = new QLabel();
-    lightLabelValue->setNum(100 * lightIntensity);
-    connect(lightSlider,SIGNAL(valueChanged(int)),lightLabelValue,SLOT(setNum(int)));
-    QHBoxLayout *hboxLight = new QHBoxLayout;
-    hboxLight->addWidget(lightLabel);
-    hboxLight->addWidget(lightLabelValue);
-    outer->addLayout(hboxLight);
-    outer->addWidget(lightSlider);
+
 
     // Phong shininess slider
     QSlider* shininessSlider = new QSlider(Qt::Horizontal);
@@ -299,6 +315,129 @@ QWidget *glShaderWindow::makeAuxWindow()
     hboxEta->addWidget(etaLabelValue);
     outer->addLayout(hboxEta);
     outer->addWidget(etaSlider);
+
+    // Global Illumincation Box
+    QGroupBox *groupBox4 = new QGroupBox("Global Illumination parameter:");
+    // On/Off
+    QHBoxLayout *hboxOnOff= new QHBoxLayout;
+    QRadioButton *on = new QRadioButton("On");
+    QRadioButton *off = new QRadioButton("Off");
+    if (globalillumination) on->setChecked(true);
+    else off->setChecked(true);
+    connect(on, SIGNAL(clicked()), this, SLOT(globalillOn()));
+    connect(off, SIGNAL(clicked()), this, SLOT(globalillOff()));
+    QLabel* GBLabel = new QLabel("Global Illumination:      ");
+    hboxOnOff->addWidget(GBLabel);
+    hboxOnOff->addWidget(on);
+    hboxOnOff->addWidget(off);
+    // Sample
+    QSlider* sampleSlider = new QSlider(Qt::Horizontal);
+    sampleSlider->setTickPosition(QSlider::TicksBelow);
+    sampleSlider->setTickInterval(4);
+    sampleSlider->setMinimum(4);
+    sampleSlider->setMaximum(128);
+    sampleSlider->setSliderPosition(sample);
+    connect(sampleSlider,SIGNAL(valueChanged(int)),this,SLOT(updateShininess(int)));
+    QLabel* sampleLabel = new QLabel("Sample = ");
+    QLabel* sampleLabelValue = new QLabel();
+    sampleLabelValue->setNum(sample);
+    connect(sampleSlider,SIGNAL(valueChanged(int)),sampleLabelValue,SLOT(setNum(int)));
+    QHBoxLayout *hboxSample= new QHBoxLayout;
+    hboxSample->addWidget(sampleLabel);
+    hboxSample->addWidget(sampleLabelValue);
+    // ...
+    QVBoxLayout *vbox4 = new QVBoxLayout;
+    vbox4->addLayout(hboxOnOff);
+    vbox4->addLayout(hboxSample);
+    vbox4->addWidget(sampleSlider);
+    groupBox4->setLayout(vbox4);
+    outer->addWidget(groupBox4);
+
+    // envMap BOX
+    QGroupBox *groupBox3 = new QGroupBox("Environnement map:");
+    // envmap Intensity slider
+    QSlider* envSlider = new QSlider(Qt::Horizontal);
+    envSlider->setTickPosition(QSlider::TicksBelow);
+    envSlider->setTickInterval(5);
+    envSlider->setMinimum(0);
+    envSlider->setMaximum(100);
+    envSlider->setSliderPosition(envMap_coeff*100);
+    connect(envSlider,SIGNAL(valueChanged(int)),this,SLOT(updateEnv(int))); //update Eta ????
+    QLabel* envLabel = new QLabel("EnvMap Intensity =");
+    QLabel* envLabelValue = new QLabel();
+    envLabelValue->setNum(envMap_coeff * 100);
+    connect(envSlider,SIGNAL(valueChanged(int)),envLabelValue,SLOT(setNum(int))); //setNum ???
+    QHBoxLayout *hboxEnv= new QHBoxLayout;
+    hboxEnv->addWidget(envLabel);
+    hboxEnv->addWidget(envLabelValue);
+    //offset slider
+    QSlider* xSlider = new QSlider(Qt::Horizontal);
+    QSlider* ySlider = new QSlider(Qt::Horizontal);
+    xSlider->setTickPosition(QSlider::TicksBelow);
+    ySlider->setTickPosition(QSlider::TicksBelow);
+    xSlider->setMinimum(0);
+    ySlider->setMinimum(0);
+    xSlider->setMaximum(100);
+    ySlider->setMaximum(100);
+    xSlider->setSliderPosition(x_offset*100);
+    ySlider->setSliderPosition(y_offset*100);
+    connect(xSlider,SIGNAL(valueChanged(int)),this,SLOT(updateXoffset(int)));
+    connect(ySlider,SIGNAL(valueChanged(int)),this,SLOT(updateYoffset(int)));
+    QLabel* xLabel = new QLabel("U offset = ");
+    QLabel* yLabel = new QLabel("V offset = ");
+    QLabel* xLabelValue = new QLabel();
+    QLabel* yLabelValue = new QLabel();
+    xLabelValue->setNum(x_offset* 100);
+    yLabelValue->setNum(y_offset* 100);
+    connect(xSlider,SIGNAL(valueChanged(int)),xLabelValue,SLOT(setNum(int)));
+    connect(ySlider,SIGNAL(valueChanged(int)),yLabelValue,SLOT(setNum(int)));
+    // box X
+    QHBoxLayout *hboxOffset= new QHBoxLayout;
+    QVBoxLayout *vboxX = new QVBoxLayout;
+    QHBoxLayout *hx = new QHBoxLayout;
+    hx->addWidget(xLabel);
+    hx->addWidget(xLabelValue);
+    vboxX->addLayout(hx);
+    vboxX->addWidget(xSlider);
+    // box Y
+    QVBoxLayout *vboxY = new QVBoxLayout;
+    QHBoxLayout *hy = new QHBoxLayout;
+    hy->addWidget(yLabel);
+    hy->addWidget(yLabelValue);
+    vboxY->addLayout(hy);
+    vboxY->addWidget(ySlider);
+    hboxOffset->addLayout(vboxX);
+    hboxOffset->addLayout(vboxY);
+    // box 
+    QVBoxLayout *vbox3 = new QVBoxLayout;
+    vbox3->addLayout(hboxOffset);
+    vbox3->addLayout(hboxEnv);
+    vbox3->addWidget(envSlider);
+    groupBox3->setLayout(vbox3);
+    outer->addWidget(groupBox3);
+
+    // light source intensity
+    QSlider* lightSlider = new QSlider(Qt::Horizontal);
+    lightSlider->setTickPosition(QSlider::TicksBelow);
+    lightSlider->setMinimum(0);
+    lightSlider->setMaximum(200);
+    lightSlider->setSliderPosition(100*lightIntensity);
+    connect(lightSlider,SIGNAL(valueChanged(int)),this,SLOT(updateLightIntensity(int)));
+    QLabel* lightLabel = new QLabel("Light intensity = ");
+    QLabel* lightLabelValue = new QLabel();
+    lightLabelValue->setNum(100 * lightIntensity);
+    connect(lightSlider,SIGNAL(valueChanged(int)),lightLabelValue,SLOT(setNum(int)));
+    QHBoxLayout *hboxLight = new QHBoxLayout;
+    hboxLight->addWidget(lightLabel);
+    hboxLight->addWidget(lightLabelValue);
+    outer->addLayout(hboxLight);
+    outer->addWidget(lightSlider);
+
+    // Render button
+    QPushButton *render_button = new QPushButton("Render");
+    //connect(render_button, &QPushButton::released, this, SLOT(updateRender(1)));
+    connect(render_button, SIGNAL(clicked()), this, SLOT(renderClicked()));
+    outer->addWidget(render_button);
 
     auxWidget->setLayout(outer);
     return auxWidget;
@@ -1030,6 +1169,10 @@ void glShaderWindow::render()
         compute_program->setUniformValue("framebuffer", 2);
         compute_program->setUniformValue("colorTexture", 0);
         compute_program->setUniformValue("envMap", 1);
+        compute_program->setUniformValue("envMap_coeff", envMap_coeff);
+        compute_program->setUniformValue("x_offset", x_offset);
+        compute_program->setUniformValue("y_offset", y_offset);
+        compute_program->setUniformValue("sample", sample);
 		glBindImageTexture(2, computeResult->textureId(), 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
         int worksize_x = nextPower2(width());
         int worksize_y = nextPower2(height());
@@ -1106,4 +1249,7 @@ void glShaderWindow::render()
     glDrawElements(GL_TRIANGLES, 3 * m_numFaces, GL_UNSIGNED_INT, 0);
     m_vao.release();
     m_program->release();
+    // mettre un if started pour eviter d'avoir temps qui n'ont aucn sens
+    t_end = std::clock();
+    std::cout << "Render time: " << (t_end-t_start) / float(CLOCKS_PER_SEC)<< " s\n";
 }
