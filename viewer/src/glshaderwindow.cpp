@@ -236,7 +236,6 @@ void glShaderWindow::updateSample(int sampleValue)
 }
 void glShaderWindow::renderClicked()
 {
-    std::cout<<"Rendering..."<<endl;
     t_start = std::clock();
     renderNow();
 }
@@ -1136,6 +1135,7 @@ static int nextPower2(int x) {
 
 void glShaderWindow::render()
 {
+    std::cout<<"Rendering...";
     QVector3D lightPosition = m_matrix[1] * (m_center + lightDistance * modelMesh->bsphere.r * QVector3D(0.5, 0.5, 1));
 
     QMatrix4x4 lightCoordMatrix;
@@ -1172,7 +1172,8 @@ void glShaderWindow::render()
         compute_program->setUniformValue("envMap_coeff", envMap_coeff);
         compute_program->setUniformValue("x_offset", x_offset);
         compute_program->setUniformValue("y_offset", y_offset);
-        compute_program->setUniformValue("sample", sample);
+        compute_program->setUniformValue("nb_sample", sample);
+        compute_program->setUniformValue("is_GI", globalillumination);
 		glBindImageTexture(2, computeResult->textureId(), 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
         int worksize_x = nextPower2(width());
         int worksize_y = nextPower2(height());

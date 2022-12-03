@@ -18,7 +18,8 @@ uniform vec3 center;
 uniform float envMap_coeff;
 uniform float x_offset;
 uniform float y_offset;
-//uniform int sample;
+uniform int nb_sample;
+uniform bool is_GI;
 
 #define MAX_SCENE_BOUNDS    10.0
 #define EPS                 0.000001
@@ -348,15 +349,14 @@ float get_F(float costheta)
     return F;
 }
 
-vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
+vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v, vec4 L)
 {
 	// Goal: compute direct illumination at point p, from the light source at lightPosition.
 	// color: local material color, RGBA
 	// p: coordinates of intersection point, xyzw
 	// n: normal at intersection point, xyzw
 	// v: incoming viewing direction. Points towards the eye.
-    vec4 Lpos = vec4(lightPosition,1.0);
-    vec4 L = normalize(Lpos - p);   //the vector to the light source
+	// L: the vector to the light source
     n = normalize(n);
     v = normalize(v);
     vec4 Ca = Ka*lightIntensity*color;
@@ -402,7 +402,7 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
 }
 
 
-const int MAX_TRACE = 5;
+const int MAX_TRACE = 1;
 
 void getLocal(vec4 origin, vec4 dir, hitinfo_t h, out vec4 color, out vec4 p, out vec4 n)
 {
@@ -482,7 +482,7 @@ vec4 trace(vec4 origin, vec4 dir)
     sp--;
     while(sp>=0)
     {
-        di =  directIllumination(stack[sp].localColor, stack[sp].hit, stack[sp].N, -stack[sp].dir);
+        di =  directIllumination(stack[sp].localColor, stack[sp].hit, stack[sp].N, -stack[sp].dir, stack[sp].Ld);
         float costheta = dot(-stack[sp].dir, stack[sp].N);
         float rho = get_F(costheta);
         C = di + rho*C;
