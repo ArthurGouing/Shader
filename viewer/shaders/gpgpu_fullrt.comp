@@ -32,6 +32,7 @@ uniform bool is_GI;
 #define Ka 0.05
 #define Kd 0.3
 
+#define PHI 1.618033988
 #define PI 4*atan(1.0)
 
 struct hitinfo_t {
@@ -402,7 +403,13 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v, vec4 L)
 }
 
 
-const int MAX_TRACE = 1;
+const int MAX_TRACE = 0;
+
+float gold_noise(in vec2  xy, in float seed)
+{
+    return fract(tan(distance(xy*PHI, xy)*seed)*xy.x);
+}
+
 
 void getLocal(vec4 origin, vec4 dir, hitinfo_t h, out vec4 color, out vec4 p, out vec4 n)
 {
@@ -416,6 +423,7 @@ void getLocal(vec4 origin, vec4 dir, hitinfo_t h, out vec4 color, out vec4 p, ou
         n = interpolateNormal(h);
     }
 }
+
 
 vec4 background_color(vec4 origin, vec4 u)
 {
@@ -431,6 +439,26 @@ vec4 background_color(vec4 origin, vec4 u)
     vec4 color = texture(envMap, textcoord);
     return envMap_coeff*color;
 }
+vec4 random_ray(vec4 n, float seed, vec2 seed2)
+{
+    // create a random vector in the hemisphere defined by the normal n
+    float r1 = gold_noise(seed2, seed+1024);
+    float r2 = gold_noise(seed2, seed);
+    float theta = PI * r1;
+    float sinTheta  = sin(theta);
+    //sinTheta = sqrt(1 - r1 * r1); 
+    float phi = 2 * PI * r2; 
+    float x = sinTheta * cos(phi); 
+    float z = sinTheta * sin(phi); 
+    vec3 nt1 = vec3(n.z,  0, -n.x);
+    vec3 nt2 = cross(vec3(n), nt1);
+    mat4 M = mat4(nt1.x, nt1.y, nt1.z, 0.,
+		  n.x  , n.y  , n.z  , 0.,
+		  nt2.x, nt2.y, nt2.z, 0.,
+		  0.   , 0.   , 0.   , 1.);
+    vec4 dir_loc = vec4(x, r1, z, 1.0); 
+    return M*dir_loc;
+}
 
 struct trace_state_t
 {
@@ -445,7 +473,7 @@ struct trace_state_t
 };
 
 
-vec4 trace(vec4 origin, vec4 dir)
+vec4 trace(vec4 origin, vec4 dir, float seed, vec2 seed2)
 {
     // These variables are for TP2
     trace_state_t stack[MAX_TRACE + 1];
@@ -472,13 +500,21 @@ vec4 trace(vec4 origin, vec4 dir)
         stack[sp].N = normalize(stack[sp].N);
         stack[sp].Ld = normalize(Lpos - p);   //the vector to the light source
         p = stack[sp].hit;
-        u = reflect(stack[sp].dir, stack[sp].N);
+	if (is_GI)
+	{
+    	    u = random_ray(stack[sp].N, sp+seed, seed2);
+	}
+	else {
+            u = reflect(stack[sp].dir, stack[sp].N);
+	}
 
         sp++;
     }
     vec4 di;
-    vec4 C = background_color(p, u);
-    //C = vec4(0., 0., 0., 1.); // A supprimé pour avoir l'envmap sur les reflets
+    vec4 C = vec4(0., 0., 0., 1.);
+    if (!firstIntersection(p, u, hl))
+    C =background_color(p, u);
+    //C = vec4(0., 0., 0., 1.); // A supprimé pour avoir l'envmap sur les reflets uniquement
     sp--;
     while(sp>=0)
     {
@@ -512,7 +548,21 @@ void main(void) {
     // Step 2: ray direction:
     vec4 dir = normalize((mat_inverse * worldPos));
     vec4 eye = (mat_inverse * vec4(0, 0, 0, 1));
-    vec4 color = trace(eye, dir);
+    vec4 color = vec4(0., 0., 0., 1.);
+    float nb_ray;
+    if (is_GI)
+    { 
+	nb_ray = nb_sample;
+    }
+    else {
+	nb_ray = 1;
+    }
+    for (int i=1; i<=nb_ray; i++)
+    {
+	color = color + trace(eye, dir, i*PI, i*i*vec2(pix));
+    }
+    color = color / nb_ray;
+    //vec4 color = trace(eye, dir);
 
     imageStore(framebuffer, pix, color);
 }

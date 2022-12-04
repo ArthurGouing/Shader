@@ -31,7 +31,7 @@ glShaderWindow::glShaderWindow(QWindow *parent)
       g_vertices(0), g_normals(0), g_texcoords(0), g_colors(0), g_indices(0),
       gpgpu_vertices(0), gpgpu_normals(0), gpgpu_texcoords(0), gpgpu_colors(0), gpgpu_indices(0),
       environmentMap(0), texture(0), permTexture(0), pixels(0), mouseButton(Qt::NoButton), auxWidget(0),
-      isGPGPU(true), hasComputeShaders(true), blinnPhong(true), transparent(true), eta(1.5), lightIntensity(2.0f), shininess(50.0f), lightDistance(5.0f), groundDistance(0.78), envMap_coeff(1.), x_offset(0.), y_offset(0.65), sample(4), globalillumination(false),
+      isGPGPU(true), hasComputeShaders(true), blinnPhong(true), transparent(true), eta(1.5), lightIntensity(2.0f), shininess(50.0f), lightDistance(5.0f), groundDistance(0.78), envMap_coeff(1.), x_offset(0.), y_offset(0.65), sample(1), globalillumination(true),
       shadowMap_fboId(0), shadowMap_rboId(0), shadowMap_textureId(0), fullScreenSnapshots(false), computeResult(0), 
       m_indexBuffer(QOpenGLBuffer::IndexBuffer), ground_indexBuffer(QOpenGLBuffer::IndexBuffer)
 {
@@ -333,10 +333,10 @@ QWidget *glShaderWindow::makeAuxWindow()
     QSlider* sampleSlider = new QSlider(Qt::Horizontal);
     sampleSlider->setTickPosition(QSlider::TicksBelow);
     sampleSlider->setTickInterval(4);
-    sampleSlider->setMinimum(4);
+    sampleSlider->setMinimum(0);
     sampleSlider->setMaximum(128);
     sampleSlider->setSliderPosition(sample);
-    connect(sampleSlider,SIGNAL(valueChanged(int)),this,SLOT(updateShininess(int)));
+    connect(sampleSlider,SIGNAL(valueChanged(int)),this,SLOT(updateSample(int)));
     QLabel* sampleLabel = new QLabel("Sample = ");
     QLabel* sampleLabelValue = new QLabel();
     sampleLabelValue->setNum(sample);
@@ -735,10 +735,10 @@ void glShaderWindow::saveScreenshot()
     QPixmap pixmap;
     if (screen) {
         if (fullScreenSnapshots) pixmap = screen->grabWindow(winId());
-        else pixmap = screen->grabWindow(winId(), parent()->x(), parent()->y(), parent()->width(), parent()->height());
+        else pixmap = screen->grabWindow(winId(), parent()->x() + x(), parent()->y() + y(), width(), height());
+	// pixmap = screen->grabWindow(winId(), parent()->x(), parent()->y(), parent()->width(), parent()->height());
         // This grabs the window and the control panel
         // To get the window only:
-        // pixmap = screen->grabWindow(winId(), parent()->x() + x(), parent()->y() + y(), width(), height());
     }
     QFileDialog dialog(0, "Save current picture", workingDirectory, "*.png *.jpg");
     dialog.setAcceptMode(QFileDialog::AcceptSave);
@@ -1172,6 +1172,7 @@ void glShaderWindow::render()
         compute_program->setUniformValue("envMap_coeff", envMap_coeff);
         compute_program->setUniformValue("x_offset", x_offset);
         compute_program->setUniformValue("y_offset", y_offset);
+	std::cout<<"("<<sample<<" sample)"<<std::endl;
         compute_program->setUniformValue("nb_sample", sample);
         compute_program->setUniformValue("is_GI", globalillumination);
 		glBindImageTexture(2, computeResult->textureId(), 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
@@ -1252,5 +1253,5 @@ void glShaderWindow::render()
     m_program->release();
     // mettre un if started pour eviter d'avoir temps qui n'ont aucn sens
     t_end = std::clock();
-    std::cout << "Render time: " << (t_end-t_start) / float(CLOCKS_PER_SEC)<< " s\n";
+    std::cout << "Render time: " << (t_end-t_start) / float(CLOCKS_PER_SEC)/100<< " s\n";
 }
