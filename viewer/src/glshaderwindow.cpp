@@ -31,7 +31,7 @@ glShaderWindow::glShaderWindow(QWindow *parent)
       g_vertices(0), g_normals(0), g_texcoords(0), g_colors(0), g_indices(0),
       gpgpu_vertices(0), gpgpu_normals(0), gpgpu_texcoords(0), gpgpu_colors(0), gpgpu_indices(0),
       environmentMap(0), texture(0), permTexture(0), pixels(0), mouseButton(Qt::NoButton), auxWidget(0),
-      isGPGPU(true), hasComputeShaders(true), blinnPhong(true), transparent(true), eta(1.5), lightIntensity(2.0f), shininess(50.0f), lightDistance(5.0f), groundDistance(0.78), envMap_coeff(1.), x_offset(0.), y_offset(0.65), sample(1), globalillumination(true),
+      isGPGPU(true), hasComputeShaders(true), blinnPhong(true), transparent(true), eta(1.5), lightIntensity(1.0f), shininess(50.0f), lightDistance(5.0f), groundDistance(0.78), envMap_coeff(1.), x_offset(0.), y_offset(0.65), sample(1), globalillumination(true),
       shadowMap_fboId(0), shadowMap_rboId(0), shadowMap_textureId(0), fullScreenSnapshots(false), computeResult(0), 
       m_indexBuffer(QOpenGLBuffer::IndexBuffer), ground_indexBuffer(QOpenGLBuffer::IndexBuffer)
 {
@@ -419,7 +419,7 @@ QWidget *glShaderWindow::makeAuxWindow()
     QSlider* lightSlider = new QSlider(Qt::Horizontal);
     lightSlider->setTickPosition(QSlider::TicksBelow);
     lightSlider->setMinimum(0);
-    lightSlider->setMaximum(200);
+    lightSlider->setMaximum(1000);
     lightSlider->setSliderPosition(100*lightIntensity);
     connect(lightSlider,SIGNAL(valueChanged(int)),this,SLOT(updateLightIntensity(int)));
     QLabel* lightLabel = new QLabel("Light intensity = ");
