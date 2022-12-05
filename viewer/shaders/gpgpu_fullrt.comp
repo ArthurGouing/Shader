@@ -360,9 +360,9 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v, vec4 L, vec4 lightco
 	// L: the vector to the light source
     n = normalize(n);
     v = normalize(v);
-    lightcolor = lightIntensity * lightcolor;
+    lightcolor = 10 * lightIntensity * lightcolor;
     vec4 Ca = vec4(0., 0., 0., 1.); 
-    Ca = Ka * lightcolor * color;
+    //Ca = Ka * lightcolor * color;
     //remettre le shadow ca devrait bien marcher pour la Glob Illu mais je vois aucune diff...
     hitinfo_t h_shadow;
     bool in_shadow = firstIntersection(p, L, h_shadow);
@@ -371,11 +371,11 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v, vec4 L, vec4 lightco
         return Ca;
     }
 
-    vec4 Cd = Kd*max(dot(n,L),0)* lightcolor*color;
+    vec4 Cd = Kd/5*max(dot(n,L),0)* lightcolor*color;
     //Cd = vec4(0., 0., 0., 1.);
 
     vec4 H =normalize(L+v);
-    float costheta = dot(n, v);
+    float costheta = dot(L, H);
     float ci;
     vec4 Cs;
     float F = get_F(costheta);
@@ -473,7 +473,7 @@ vec4 random_ray(vec4 n, float seed, vec2 seed2)
         r3 = 2*gold_noise(seed2, 2048 + seed+k)-1;
 	k++;
     }
-    return vec4(r1, r2, r3, 0.);
+    return normalize(vec4(r1, r2, r3, 0.));
 	
     return dir_loc*M;
 }
@@ -532,9 +532,8 @@ vec4 trace(vec4 origin, vec4 dir, float seed, vec2 seed2)
     vec4 di;
     vec4 light_color = vec4(lightIntensity, lightIntensity, lightIntensity, 1.0);
     vec4 C = vec4(0., 0., 0., 1.);
-    if (!firstIntersection(p, stack[sp].Ld, hl) && (sp<=MAX_TRACE))
+    if (!firstIntersection(p, u, hl) && (sp<=MAX_TRACE))
     C =background_color(p, stack[sp].Ld); // Ld ou u
-    C = vec4(1., 1., 1., 1.);
     while(sp>=0)
     {
 	if (is_GI) {
