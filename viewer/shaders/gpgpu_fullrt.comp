@@ -33,7 +33,8 @@ uniform bool is_GI;
 #define Kd 0.3
 
 #define PHI 1.618033988
-#define PI 4*atan(1.0)
+//#define PI atan(1.)
+#define PI 3.141592653589793
 
 struct hitinfo_t {
     /* Index of the first index of the triangle */
@@ -360,7 +361,7 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v, vec4 L, vec4 lightco
 	// L: the vector to the light source
     n = normalize(n);
     v = normalize(v);
-    lightcolor = 10 * lightIntensity * lightcolor;
+    lightcolor = 20 * lightIntensity * lightcolor;
     vec4 Ca = vec4(0., 0., 0., 1.); 
     //Ca = Ka * lightcolor * color;
     //remettre le shadow ca devrait bien marcher pour la Glob Illu mais je vois aucune diff...
@@ -371,7 +372,6 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v, vec4 L, vec4 lightco
         return Ca;
     }
 
-    vec4 Cd = Kd/5*max(dot(n,L),0)* lightcolor*color;
     //Cd = vec4(0., 0., 0., 1.);
 
     vec4 H =normalize(L+v);
@@ -379,10 +379,12 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v, vec4 L, vec4 lightco
     float ci;
     vec4 Cs;
     float F = get_F(costheta);
+    vec4 Cd = F*Kd*max(dot(n,L),0)* lightcolor*color;
 
     if (blinnPhong)
     {
         Cs = F*pow(max(dot(n, H),0),shininess) * lightcolor*color;
+ 	//Cs = F*pow(dot(v, reflect(L, n)),shininess)*lightcolor*color;
 	//Cs = vec4(F, F, F, 1.0);
     }
     else //Cook-Torrance model
@@ -408,7 +410,7 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v, vec4 L, vec4 lightco
 }
 
 
-const int MAX_TRACE = 2;
+const int MAX_TRACE = 1;
 
 float gold_noise(in vec2  xy, in float seed)
 {
@@ -439,7 +441,7 @@ vec4 background_color(vec4 origin, vec4 u)
     float r = sqrt(pow(M.x, 2) + pow(M.y, 2) + pow(M.z, 2));
     float theta = acos(-M.y/r);
     float phi   = atan(M.z, M.x);
-    vec2 textcoord = vec2(x_offset+0.5+phi/(2*PI), y_offset+.5-2*theta/PI);
+    vec2 textcoord = vec2(x_offset+0.5+phi/(2*PI), y_offset+.5-theta/PI);
     //if (textcoord.y<0) { textcoord.y=0;}
     vec4 color = texture(envMap, textcoord);
     return envMap_coeff*color;
@@ -454,6 +456,7 @@ vec4 random_ray(vec4 n, float seed, vec2 seed2)
     float sinTheta  = sin(theta);
     //sinTheta = sqrt(1 - r1 * r1); 
     float phi = 2 * PI * r2; 
+    float y;
     float x = sinTheta * cos(phi); 
     float z = sinTheta * sin(phi); 
     n = normalize(n);
@@ -465,17 +468,20 @@ vec4 random_ray(vec4 n, float seed, vec2 seed2)
 		  0.   , 0.   , 0.   , 1.);
     vec4 dir_loc = normalize(vec4(x, cos(theta), z, 0.0)); 
     //vec4 test = vec4(2*r1-1, 200*r2, 2*r3-1, 0.);
-    //return normalize(test);
+    //return dir_loc;
     int k=1;
-    while (n.x*r1+n.y*r2+n.z*r3<=0) {
-        r1 = 2*gold_noise(seed2, seed+1024+k)-1;
+    while (n.x*x+n.y*y+n.z*z<=0) {
+        r1 = gold_noise(seed2, seed+1024+k);
         r2 = gold_noise(seed2, seed+k);
-        r3 = 2*gold_noise(seed2, 2048 + seed+k)-1;
+	theta = PI * r1;
+	phi = 2*PI * r2;
+	y 	 = cos(theta);
+	sinTheta = sin(theta);
+        x = sinTheta * cos(phi); 
+        z = sinTheta * sin(phi); 
 	k++;
     }
-    return normalize(vec4(r1, r2, r3, 0.));
-	
-    return dir_loc*M;
+    return normalize(vec4(x, y, z, 0.));
 }
 
 struct trace_state_t
@@ -533,7 +539,7 @@ vec4 trace(vec4 origin, vec4 dir, float seed, vec2 seed2)
     vec4 light_color = vec4(lightIntensity, lightIntensity, lightIntensity, 1.0);
     vec4 C = vec4(0., 0., 0., 1.);
     if (!firstIntersection(p, u, hl) && (sp<=MAX_TRACE))
-    C =background_color(p, stack[sp].Ld); // Ld ou u
+    C =background_color(p, u); // Ld ou u
     while(sp>=0)
     {
 	if (is_GI) {
