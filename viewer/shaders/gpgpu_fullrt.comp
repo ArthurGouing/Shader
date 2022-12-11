@@ -343,7 +343,7 @@ float get_F(float costheta)
         float ci = sqrt(pow(eta,2)-(1-pow(costheta,2)));
         float Fs = pow((costheta-ci)/(costheta+ci),2);
         float Fp = pow((pow(eta,2)*costheta-ci)/(pow(eta,2)*costheta+ci),2);
-        F = Fs + Fp;
+        F = (Fs + Fp)/2.;
     }
     else {
         F = 1.0;
@@ -359,33 +359,37 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v, vec4 L, vec4 lightco
 	// n: normal at intersection point, xyzw
 	// v: incoming viewing direction. Points towards the eye.
 	// L: the vector to the light source
+    vec4 H =normalize(L+v);
     n = normalize(n);
     v = normalize(v);
-    lightcolor = 20 * lightIntensity * lightcolor;
-    vec4 Ca = vec4(0., 0., 0., 1.); 
-    //Ca = Ka * lightcolor * color;
-    //remettre le shadow ca devrait bien marcher pour la Glob Illu mais je vois aucune diff...
-    hitinfo_t h_shadow;
-    //bool in_shadow = firstIntersection(p, L, h_shadow);
-    //if ( (in_shadow) || (dot(n, L)<0) )
-    //{
-    //    return Ca;
-    //}
-
-
-    vec4 H =normalize(L+v);
-    float costheta = dot(L, H);
-    float ci;
+    vec4 Ca;
+    vec4 Cd;
     vec4 Cs;
-    float F = get_F(costheta);
-    vec4 Cd = Kd*max(dot(n,L),0)* lightcolor*color;
-    Cd = vec4(0., 0., 0., 1.);
+    if (is_GI)
+    {
+        lightcolor = 20 * lightIntensity * lightcolor;
+	Ca = vec4(0., 0., 0., 1.);
+	Cd = vec4(0., 0., 0., 1.);
+    }
+    else {
+        lightcolor = lightIntensity * lightcolor;
+        Ca = Ka * lightcolor * color;
+        //remettre le shadow ca devrait bien marcher pour la Glob Illu mais je vois aucune diff...
+        hitinfo_t h_shadow;
+        bool in_shadow = firstIntersection(p, L, h_shadow);
+        if ( (in_shadow) || (dot(n, L)<0) )
+        {
+            return Ca;
+        }
+        Cd = Kd*max(dot(n,L),0)* lightcolor*color;
+    }
 
+    float ci;
+    float costheta = dot(L, H);
+    float F = get_F(costheta);
     if (blinnPhong)
     {
-        Cs = pow(max(dot(n, H),0),shininess) * lightcolor*color;
- 	//Cs = F*pow(dot(v, reflect(L, n)),shininess)*lightcolor*color;
-	//Cs = vec4(F, F, F, 1.0);
+        Cs = F*pow(max(dot(n, H),0),shininess) * lightcolor*color;
     }
     else //Cook-Torrance model
     {
@@ -393,7 +397,7 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v, vec4 L, vec4 lightco
         float costheta_out = dot(v,n);
         float costheta_h  = dot(H,n);
         float alpha = shininess/400;
-        alpha = exp(-shininess/ 500) - 0.5;
+        alpha = exp(-shininess/ 289) - 0.5;
         float D;
         float theta = acos(costheta_h);
         if (costheta_h>0){   
@@ -452,36 +456,27 @@ vec4 random_ray(vec4 n, float seed, vec2 seed2)
     float r1 = gold_noise(seed2, seed+1024);
     float r2 = gold_noise(seed2, seed);
     float r3 = gold_noise(seed2, 2048 + seed);
-    float theta = PI * r1;
-    float sinTheta  = sin(theta);
+    float theta = acos(pow(r1,(shininess+1)/2));
+    theta = PI/2 * r1;
     //sinTheta = sqrt(1 - r1 * r1); 
     float phi = 2 * PI * r2; 
-    float y;
+    float sinTheta  = sin(theta);
+    float y = cos(theta);
     float x = sinTheta * cos(phi); 
     float z = sinTheta * sin(phi); 
+    vec4 dir_loc = normalize(vec4(x, y, z, 0.0)); 
+    if ((n.z==0.) && (n.x==0.))
+    {
+	return dir_loc;
+    }
     n = normalize(n);
     vec3 nt1 = normalize(vec3(n.z,  0, -n.x));
     vec3 nt2 = cross(vec3(n), nt1);
     mat4 M = mat4(nt1.x, n.x, nt2.x, 0.,
-		  nt1.y, n.y, nt2.y, 0.,
-		  nt1.z, n.z, nt2.z, 0.,
-		  0.   , 0.   , 0.   , 1.);
-    vec4 dir_loc = normalize(vec4(x, cos(theta), z, 0.0)); 
-    //vec4 test = vec4(2*r1-1, 200*r2, 2*r3-1, 0.);
-    //return dir_loc;
-    int k=1;
-    while (n.x*x+n.y*y+n.z*z<=0) {
-        r1 = gold_noise(seed2, seed+1024+k);
-        r2 = gold_noise(seed2, seed+k);
-	theta = PI * r1;
-	phi = 2*PI * r2;
-	y 	 = cos(theta);
-	sinTheta = sin(theta);
-        x = sinTheta * cos(phi); 
-        z = sinTheta * sin(phi); 
-	k++;
-    }
-    return normalize(vec4(x, y, z, 0.));
+        	  nt1.y, n.y, nt2.y, 0.,
+        	  nt1.z, n.z, nt2.z, 0.,
+        	  0.   , 0.   , 0.   , 1.);
+    return dir_loc*M;
 }
 
 struct trace_state_t
@@ -537,16 +532,19 @@ vec4 trace(vec4 origin, vec4 dir, float seed, vec2 seed2)
     sp--;
     vec4 di;
     vec4 light_color = vec4(lightIntensity, lightIntensity, lightIntensity, 1.0);
-    vec4 C = vec4(0., 0., 0., 1.);
-    if (!firstIntersection(p, u, hl) && (sp<=MAX_TRACE))
-    C =background_color(p, u); // Ld ou u
+    //vec4 C = vec4(0., 0., 0., 1.);
+    //if (!firstIntersection(p, u, hl) && (sp<=MAX_TRACE))
+    vec4 C =background_color(p, u); // Ld ou u
     while(sp>=0)
     {
 	if (is_GI) {
-            float costheta = dot(-stack[sp].dir, stack[sp].N);
-            float rho = get_F(costheta);
+            //float costheta = dot(-stack[sp].dir, stack[sp].N);
+            //float rho = get_F(costheta);
+            float costheta = dot(stack[sp].Ld, stack[sp].N);
             di =  directIllumination(stack[sp].localColor, stack[sp].hit, stack[sp].N, -stack[sp].dir, stack[sp].Ld, C);
             C = di;
+    	    //C = random_ray(stack[sp].N, sp+seed, seed2);
+	    //C = stack[sp].Ld;
 	}
 	else {
  	    di = directIllumination(stack[sp].localColor, stack[sp].hit, stack[sp].N, -stack[sp].dir, stack[sp].Ld, light_color);
@@ -591,7 +589,7 @@ void main(void) {
     }
     for (int i=1; i<=nb_ray; i++)
     {
-	color = color + trace(eye, dir, i*PI, i*i*vec2(pix));
+	color = color + trace(eye, dir, float(i), vec2(pix));
     }
     color = color / nb_ray;
     //vec4 color = trace(eye, dir);
