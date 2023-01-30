@@ -456,8 +456,8 @@ vec4 random_ray(vec4 n, float seed, vec2 seed2)
     float r1 = gold_noise(seed2, seed+1024);
     float r2 = gold_noise(seed2, seed);
     float r3 = gold_noise(seed2, 2048 + seed);
-    float theta = acos(pow(r1,(shininess+1)/2));
-    theta = PI/2 * r1;
+    //float theta = acos(pow(r1,(shininess+1)/2));
+    float theta = PI/2 * r1;
     //sinTheta = sqrt(1 - r1 * r1); 
     float phi = 2 * PI * r2; 
     float sinTheta  = sin(theta);
@@ -467,7 +467,7 @@ vec4 random_ray(vec4 n, float seed, vec2 seed2)
     vec4 dir_loc = normalize(vec4(x, y, z, 0.0)); 
     if ((n.z==0.) && (n.x==0.))
     {
-	return dir_loc;
+		return dir_loc;
     }
     n = normalize(n);
     vec3 nt1 = normalize(vec3(n.z,  0, -n.x));
@@ -548,8 +548,8 @@ vec4 trace(vec4 origin, vec4 dir, float seed, vec2 seed2)
 	}
 	else {
  	    di = directIllumination(stack[sp].localColor, stack[sp].hit, stack[sp].N, -stack[sp].dir, stack[sp].Ld, light_color);
-            float costheta = dot(-stack[sp].dir, stack[sp].N);
-            float rho = get_F(costheta);
+        float costheta = dot(-stack[sp].dir, stack[sp].N);
+        float rho = get_F(costheta);
 	    C = di + rho*C;
 	}
         sp--;
@@ -589,7 +589,7 @@ void main(void) {
     }
     for (int i=1; i<=nb_ray; i++)
     {
-	color = color + trace(eye, dir, float(i), vec2(pix));
+		color = color + trace(eye, dir, 1.0, vec2(pix));
     }
     color = color / nb_ray;
     //vec4 color = trace(eye, dir);

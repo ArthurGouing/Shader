@@ -31,7 +31,7 @@ glShaderWindow::glShaderWindow(QWindow *parent)
       g_vertices(0), g_normals(0), g_texcoords(0), g_colors(0), g_indices(0),
       gpgpu_vertices(0), gpgpu_normals(0), gpgpu_texcoords(0), gpgpu_colors(0), gpgpu_indices(0),
       environmentMap(0), texture(0), permTexture(0), pixels(0), mouseButton(Qt::NoButton), auxWidget(0),
-      isGPGPU(true), hasComputeShaders(true), blinnPhong(false), transparent(true), eta(1.5), lightIntensity(1.0f), shininess(100.0f), lightDistance(5.0f), groundDistance(0.78), envMap_coeff(1.), x_offset(0.), y_offset(0.5), sample(1), globalillumination(true),
+      isGPGPU(true), hasComputeShaders(true), blinnPhong(false), transparent(true), eta(1.5), lightIntensity(1.0f), shininess(100.0f), lightDistance(5.0f), groundDistance(0.78), envMap_coeff(1.), x_offset(0.), y_offset(0.5), sample(32), globalillumination(true),
       shadowMap_fboId(0), shadowMap_rboId(0), shadowMap_textureId(0), fullScreenSnapshots(false), computeResult(0), 
       m_indexBuffer(QOpenGLBuffer::IndexBuffer), ground_indexBuffer(QOpenGLBuffer::IndexBuffer)
 {
@@ -238,6 +238,7 @@ void glShaderWindow::renderClicked()
 {
     t_start = std::clock();
     renderNow();
+    //renderNow();
 }
 
 QWidget *glShaderWindow::makeAuxWindow()
@@ -253,7 +254,7 @@ QWidget *glShaderWindow::makeAuxWindow()
     QRadioButton *radio1 = new QRadioButton("Blinn-Phong");
     QRadioButton *radio2 = new QRadioButton("Cook-Torrance");
     if (blinnPhong) radio1->setChecked(true);
-    else radio1->setChecked(true);
+    else radio2->setChecked(true);
     connect(radio1, SIGNAL(clicked()), this, SLOT(blinnPhongClicked()));
     connect(radio2, SIGNAL(clicked()), this, SLOT(cookTorranceClicked()));
 
@@ -1253,5 +1254,4 @@ void glShaderWindow::render()
     m_program->release();
     // mettre un if started pour eviter d'avoir temps qui n'ont aucn sens
     t_end = std::clock();
-    std::cout << "Render time: " << (t_end-t_start) / float(CLOCKS_PER_SEC)/100<< " s\n";
 }
