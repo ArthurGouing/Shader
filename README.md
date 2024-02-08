@@ -7,4 +7,4 @@ Here is a render with simple ray-tracer:
 
 Here is a render with global illumination:
 
-![global](v2_28.png)
+![global](v2_128.png)
